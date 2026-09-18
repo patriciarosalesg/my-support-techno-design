@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 
-//Pantalla principal de la aplicacion
+// Pantalla principal de la aplicacion
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-//Colores principales de la aplicacion
+
+  // Colores principales de la aplicacion
   static const Color primaryColor = Color(0xFF1565C0);
   static const Color secondaryColor = Color(0xFF0D47A1);
 
   @override
   Widget build(BuildContext context) {
-//Estructura principal de la pantalla 
+    // Estructura principal de la pantalla
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-//Barra superior dela aplicacion
+
+      // Barra superior de la aplicacion
       appBar: AppBar(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
-//Nombre de la aplicacion
+
+        // Nombre de la aplicacion
         title: const Text(
           'My Support Technos Design',
           style: TextStyle(
@@ -27,24 +30,26 @@ class HomeScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-//Contenido principal de la pantalla
+
+      // Contenido principal de la pantalla
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(20),
-//Organiza los elementos verticalmente
+
+          // Organiza los elementos verticalmente
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-
               const SizedBox(height: 10),
 
-// Encabezado principal
+              // Encabezado principal
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 28,
                 ),
-//Dise de la tarjeta
+
+                // Diseño de la tarjeta
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -57,43 +62,19 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
 
-//Contenido de la tarjeta
+                // Contenido de la tarjeta
                 child: Column(
                   children: [
-
-//Imagen logo Technos Design Computadoras
+                    // Imagen logo Technos Design Computadoras
                     Image.asset(
                       'widget_profile/technos_design.jpeg',
-                      height: 65,
+                      height: 90,
                       fit: BoxFit.contain,
                     ),
 
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 20),
 
-                    const Text(
-                      '¡Bienvenido!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: secondaryColor,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-//Nombre de la aplicacion
-                    const Text(
-                      'My Support Technos Design',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: primaryColor,
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-//Descripcion de la funcion principal
+                    // Descripcion de la funcion principal
                     const Text(
                       'Consulta y da seguimiento al estado '
                       'de tu equipo de forma rápida, segura y sencilla.',
@@ -107,21 +88,23 @@ class HomeScreen extends StatelessWidget {
 
                     const SizedBox(height: 26),
 
-// Botón principal para consultar el soporte
+                    // Boton principal para consultar el soporte
                     SizedBox(
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton.icon(
-//Accion que ejecuta al presionar el boton
+                        // Accion que ejecuta al presionar el boton
                         onPressed: () {
-//Abre la pantalla de iniciar sesion
+                          // Abre la pantalla de iniciar sesion
                           Navigator.pushNamed(context, '/login');
                         },
-//Icono del boton
+
+                        // Icono del boton
                         icon: const Icon(
                           Icons.support_agent,
                         ),
-//Texto del boton
+
+                        // Texto del boton
                         label: const Text(
                           'Consultar soporte',
                           style: TextStyle(
@@ -129,6 +112,7 @@ class HomeScreen extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           foregroundColor: Colors.white,
@@ -145,7 +129,7 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 30),
 
-// Servicios
+              // Servicios
               const Text(
                 'Nuestros servicios',
                 style: TextStyle(
@@ -203,6 +187,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
 // Tarjeta reutilizable para los servicios
 class _ServiceCard extends StatelessWidget {
   final IconData icon;

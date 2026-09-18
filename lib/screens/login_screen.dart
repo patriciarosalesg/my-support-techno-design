@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
+import 'register_screen.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
-const LoginScreen({super.key});
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -18,6 +20,9 @@ class _LoginScreenState extends State<LoginScreen> {
       TextEditingController();
 
   bool _obscurePassword = true;
+  bool _isLoading = false;
+
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -26,18 +31,44 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
-    if (_formKey.currentState!.validate()) {
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await _authService.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
       Navigator.pushNamedAndRemoveUntil(
-        context, 
+        context,
         '/dashboard',
         (route) => false,
-        );
-  
+        arguments: response['user']['fullName'],
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Inicio de sesión realizado correctamente.',
+            'Correo o contraseña incorrectos.',
           ),
         ),
       );
@@ -48,17 +79,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
+
+      // Barra superior de la aplicacion
       appBar: AppBar(
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Iniciar sesión',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
       ),
 
       body: SafeArea(
@@ -68,31 +94,9 @@ class _LoginScreenState extends State<LoginScreen> {
             key: _formKey,
             child: Column(
               children: [
-                const SizedBox(height: 25),
+                const SizedBox(height: 30),
 
-                // Icono del logo
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.computer,
-                    size: 65,
-                    color: Color(0xFF1565C0),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
+                // Nombre de la aplicacion
                 const Text(
                   'My Support Technos Design',
                   textAlign: TextAlign.center,
@@ -103,8 +107,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
 
+                // Descripcion de la pantalla
                 const Text(
                   'Accede a tu cuenta para consultar '
                   'el estado de tus servicios.',
@@ -136,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Text(
-                        'Iniciar sesión',
+                        'Accede a tu cuenta',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -146,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 20),
 
-                      // Correo electrónico
+                      // Correo electronico
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
@@ -217,30 +222,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 24),
 
-                      // Botón de inicio de sesión
+                      // Boton de inicio de sesion
                       SizedBox(
                         height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: _login,
-                          icon: const Icon(
-                            Icons.login,
-                          ),
-                          label: const Text(
-                            'Iniciar sesión',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _login,
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
                                 const Color(0xFF1565C0),
                             foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey,
                             shape: RoundedRectangleBorder(
                               borderRadius:
                                   BorderRadius.circular(12),
                             ),
                           ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : const Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.login),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Iniciar sesión',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
 
@@ -248,7 +268,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Registro
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const RegisterScreen(),
+                            ),
+                          );
+                        },
                         child: const Text(
                           '¿No tienes una cuenta? Regístrate',
                           style: TextStyle(

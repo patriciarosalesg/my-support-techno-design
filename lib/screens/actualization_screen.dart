@@ -1,22 +1,129 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/orden_servicios.dart';
+import '../services/auth_service.dart';
 import '../widgets/actualizacion_servicio_card.dart';
 
-class ActualizationScreen extends StatelessWidget {
+class ActualizationScreen extends StatefulWidget {
   const ActualizationScreen({super.key});
 
   @override
+  State<ActualizationScreen> createState() =>
+      _ActualizationScreenState();
+}
+
+class _ActualizationScreenState
+    extends State<ActualizationScreen> {
+  static const String baseUrl =
+      'https://fixit-backend-production-0499.up.railway.app';
+
+  OrdenServicio? orden;
+  List<dynamic> actualizaciones = [];
+
+  bool cargando = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (cargando) {
+      final argumentos =
+          ModalRoute.of(context)?.settings.arguments;
+
+      if (argumentos is OrdenServicio) {
+        orden = argumentos;
+        cargarActualizaciones();
+      } else {
+        cargarOrdenDesdeBackend();
+      }
+    }
+  }
+
+  Future<void> cargarOrdenDesdeBackend() async {
+    try {
+      final authService = AuthService();
+      final token = await authService.obtenerToken();
+
+      final respuesta = await http.get(
+        Uri.parse('$baseUrl/api/ordenes'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (respuesta.statusCode == 200) {
+        final datos = jsonDecode(respuesta.body);
+        final List<dynamic> lista = datos['data'];
+
+        if (lista.isNotEmpty) {
+          orden = OrdenServicio.fromJson(lista.first);
+          await cargarActualizaciones();
+        } else {
+          setState(() {
+            cargando = false;
+          });
+        }
+      } else {
+        setState(() {
+          cargando = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        cargando = false;
+      });
+    }
+  }
+
+  Future<void> cargarActualizaciones() async {
+    if (orden == null) {
+      setState(() {
+        cargando = false;
+      });
+      return;
+    }
+
+    try {
+      final authService = AuthService();
+      final token = await authService.obtenerToken();
+
+      final respuesta = await http.get(
+        Uri.parse(
+          '$baseUrl/api/ordenes/${orden!.id}/actualizaciones',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (respuesta.statusCode == 200) {
+        final datos = jsonDecode(respuesta.body);
+
+        setState(() {
+          actualizaciones = datos['data'] ?? [];
+          cargando = false;
+        });
+      } else {
+        setState(() {
+          cargando = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        cargando = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Recibe la orden enviada desde OrdersScreen.
-    final argumentos = ModalRoute.of(context)?.settings.arguments;
-
-    final OrdenServicio? orden =
-        argumentos is OrdenServicio ? argumentos : null;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-
       appBar: AppBar(
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
@@ -28,142 +135,150 @@ class ActualizationScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
+      body: cargando
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF1565C0),
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                const Text(
+                  'Actualizaciones recientes',
+                  style: TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Consulta los avances registrados por el área técnica sobre tus equipos.',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.black54,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const Text(
-            'Actualizaciones recientes',
-            style: TextStyle(
-              fontSize: 23,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0D47A1),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          const Text(
-            'Consulta los avances registrados por el área técnica sobre tus equipos.',
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.black54,
-              height: 1.4,
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Muestra la orden recibida desde OrdersScreen.
-          if (orden != null)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Orden seleccionada',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0D47A1),
+                if (orden != null)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Orden seleccionada',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0D47A1),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Número de orden: ${orden!.numeroOrden}',
+                          ),
+                          Text(
+                            'Equipo: ${orden!.equipo}',
+                          ),
+                          Text(
+                            'Servicio: ${orden!.servicio}',
+                          ),
+                          Text(
+                            'Estado: ${orden!.estado}',
+                          ),
+                        ],
                       ),
                     ),
+                  ),
 
-                    const SizedBox(height: 12),
+                if (orden != null)
+                  const SizedBox(height: 20),
 
-                    Text(
-                      'Número de orden: ${orden.numeroOrden}',
+                if (actualizaciones.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 20),
+                    child: Center(
+                      child: Text(
+                        'Todavía no hay actualizaciones registradas para esta orden.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.black54,
+                        ),
+                      ),
                     ),
+                  ),
 
-                    Text(
-                      'Equipo: ${orden.equipo}',
-                    ),
+                ...actualizaciones.map(
+                  (actualizacion) {
+                    final estado =
+                        actualizacion['estado']?.toString() ??
+                            'Sin estado';
 
-                    Text(
-                      'Servicio: ${orden.servicio}',
-                    ),
+                    final fecha =
+                        actualizacion['fecha']?.toString() ??
+                            '';
 
-                    Text(
-                      'Estado: ${orden.estado}',
-                    ),
-                  ],
+                    return ActualizacionServicioCard(
+                      numeroOrden: orden!.numeroOrden,
+                      equipo: orden!.equipo,
+                      problemaReportado:
+                          'Servicio registrado: ${orden!.servicio}',
+                      diagnostico:
+                          'Estado registrado por el área técnica: $estado',
+                      mensaje:
+                          'Se registró una actualización de la orden con el estado: $estado.',
+                      estado: estado,
+                      fecha: 'Fecha: $fecha',
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/services',
+                          arguments: orden,
+                        );
+                      },
+                    );
+                  },
                 ),
-              ),
-            ),
 
-          if (orden != null) const SizedBox(height: 20),
+                const SizedBox(height: 10),
 
-          ActualizacionServicioCard(
-            numeroOrden: 'TD-0101',
-            equipo: 'HP Laptop',
-            problemaReportado:
-                'El equipo presenta lentitud y se apaga inesperadamente durante su uso.',
-            diagnostico:
-                'Se detectó acumulación de polvo y sobrecalentamiento en el sistema de ventilación.',
-            mensaje:
-                'El equipo se encuentra en proceso de reparación y se está realizando la limpieza interna y revisión del sistema de refrigeración.',
-            estado: 'En reparación',
-            fecha: '15/08/2026 - 10:30 a. m.',
-            onTap: () {
-              Navigator.pushNamed(
-                context,
-                '/services',
-              );
-            },
-          ),
-
-          ActualizacionServicioCard(
-            numeroOrden: 'TD-0100',
-            equipo: 'MacBook Pro',
-            problemaReportado:
-                'El equipo presenta lentitud al iniciar y algunas aplicaciones dejan de responder.',
-            diagnostico:
-                'Se identificó la necesidad de realizar mantenimiento preventivo y pruebas generales del equipo.',
-            mensaje:
-                'El mantenimiento preventivo fue realizado y el equipo se encuentra en proceso de pruebas para verificar su funcionamiento.',
-            estado: 'En reparación',
-            fecha: '15/08/2026 - 2:15 p. m.',
-            onTap: () {
-              Navigator.pushNamed(
-                context,
-                '/services',
-              );
-            },
-          ),
-
-          const SizedBox(height: 10),
-
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE3F2FD),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.notifications_active_outlined,
-                  color: Color(0xFF1565C0),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Las actualizaciones se mostrarán conforme el área técnica registre nuevos avances en tu servicio.',
-                    style: TextStyle(
-                      color: Color(0xFF0D47A1),
-                      fontSize: 14,
-                      height: 1.4,
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.notifications_active_outlined,
+                        color: Color(0xFF1565C0),
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Las actualizaciones se mostrarán conforme el área técnica registre nuevos avances en tu servicio.',
+                          style: TextStyle(
+                            color: Color(0xFF0D47A1),
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }

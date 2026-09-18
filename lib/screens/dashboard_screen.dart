@@ -6,6 +6,8 @@ import 'soporte_tecnico_screen.dart';
 import 'login_screen.dart';
 import 'actualization_screen.dart';
 
+import '../services/auth_service.dart';
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -17,12 +19,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Guarda la sección seleccionada de la barra inferior.
   int _indiceActual = 0;
 
+  // Guarda los datos del usuario que inició sesión.
+  String _nombreUsuario = 'Usuario';
+  String _correoUsuario = '';
+
+  final AuthService _authService = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatosUsuario();
+  }
+
+  // Carga el nombre y correo guardados después del inicio de sesión.
+  Future<void> _cargarDatosUsuario() async {
+    final nombre = await _authService.obtenerNombreUsuario();
+    final correo = await _authService.obtenerCorreoUsuario();
+
+    if (!mounted) return;
+
+    setState(() {
+      _nombreUsuario =
+          nombre != null && nombre.isNotEmpty ? nombre : 'Usuario';
+
+      _correoUsuario = correo ?? '';
+    });
+  }
+
   // Tres secciones principales.
-  final List<Widget> _secciones = const [
-    InicioSection(),
-    OrdenesSection(),
-    PerfilSection(),
-  ];
+  List<Widget> get _secciones => [
+        InicioSection(nombreUsuario: _nombreUsuario),
+        const OrdenesSection(),
+        PerfilSection(
+          nombreUsuario: _nombreUsuario,
+          correoUsuario: _correoUsuario,
+        ),
+      ];
 
   // Cambia la sección seleccionada.
   void _cambiarSeccion(int indice) {
@@ -40,18 +72,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         content: const Text(
           'Tienes una nueva actualización de servicio.',
         ),
-        duration: const Duration(seconds: 5),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
         action: SnackBarAction(
           label: 'VER',
           onPressed: () {
-            Navigator.pushNamed(
+            Navigator.push(
               context,
-              '/actualizaciones',
+              MaterialPageRoute(
+                builder: (context) => ActualizationScreen(),
+              ),
             );
           },
         ),
@@ -83,6 +111,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
 
+      // =====================================================
+      // DRAWER
+      // =====================================================
+
       drawer: Drawer(
         child: SafeArea(
           child: Column(
@@ -106,29 +138,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     end: Alignment.bottomRight,
                   ),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.computer,
                       color: Colors.white,
                       size: 48,
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text(
-                      'My Support Technos Design',
-                      style: TextStyle(
+                      _nombreUsuario,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 5),
-                    Text(
-                      'Soporte técnico',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
                       ),
                     ),
                   ],
@@ -140,19 +166,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    // Opción 1 - Soporte técnico.
+                    // Soporte técnico.
                     ListTile(
                       leading: const Icon(
                         Icons.support_agent,
                         color: Color(0xFF1565C0),
                       ),
-                      title: const Text('Soporte técnico'),
+                      title: const Text(
+                        'Soporte técnico',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       onTap: () {
                         Navigator.pop(context);
 
-                        Navigator.pushNamed(
+                        Navigator.push(
                           context,
-                          '/soporte-tecnico',
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const SoporteTecnicoScreen(),
+                          ),
                         );
                       },
                     ),
@@ -163,24 +197,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Icons.miscellaneous_services,
                         color: Color(0xFF1565C0),
                       ),
-                      title: const Text('Servicios'),
+                      title: const Text(
+                        'Servicios',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       onTap: () {
                         Navigator.pop(context);
 
-                        Navigator.pushNamed(
+                        Navigator.push(
                           context,
-                          '/services',
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const ServicesDesign(),
+                          ),
                         );
                       },
                     ),
 
-                    // ExpansionTile.
+                    // Categorías.
                     ExpansionTile(
                       leading: const Icon(
                         Icons.category,
                         color: Color(0xFF1565C0),
                       ),
-                      title: const Text('Categorías'),
+                      title: const Text(
+                        'Categorías',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       children: [
                         ListTile(
                           contentPadding: const EdgeInsets.only(
@@ -195,9 +242,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onTap: () {
                             Navigator.pop(context);
 
-                            Navigator.pushNamed(
+                            Navigator.push(
                               context,
-                              '/soporte-tecnico',
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const SoporteTecnicoScreen(),
+                              ),
                             );
                           },
                         ),
@@ -214,9 +264,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onTap: () {
                             Navigator.pop(context);
 
-                            Navigator.pushNamed(
+                            Navigator.push(
                               context,
-                              '/soporte-tecnico',
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const SoporteTecnicoScreen(),
+                              ),
                             );
                           },
                         ),
@@ -233,9 +286,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onTap: () {
                             Navigator.pop(context);
 
-                            Navigator.pushNamed(
+                            Navigator.push(
                               context,
-                              '/soporte-tecnico',
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const SoporteTecnicoScreen(),
+                              ),
                             );
                           },
                         ),
@@ -248,13 +304,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Icons.notifications_outlined,
                         color: Color(0xFF1565C0),
                       ),
-                      title: const Text('Notificaciones'),
+                      title: const Text(
+                        'Notificaciones',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       onTap: () {
                         Navigator.pop(context);
 
-                        Navigator.pushNamed(
+                        Navigator.push(
                           context,
-                          '/actualizaciones',
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ActualizationScreen(),
+                          ),
                         );
                       },
                     ),
@@ -265,7 +329,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Icons.help_outline,
                         color: Color(0xFF1565C0),
                       ),
-                      title: const Text('Ayuda'),
+                      title: const Text(
+                        'Ayuda',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       onTap: () {
                         Navigator.pop(context);
                         _mostrarSnackBarFlotante();
@@ -278,7 +347,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Icons.info_outline,
                         color: Color(0xFF1565C0),
                       ),
-                      title: const Text('Acerca de'),
+                      title: const Text(
+                        'Acerca de',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       onTap: () {
                         Navigator.pop(context);
                         _mostrarSnackBarFlotante();
@@ -288,7 +362,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
 
-              // Última opción: Cerrar sesión.
+              // Cerrar sesión.
               const Divider(height: 1),
 
               ListTile(
@@ -303,12 +377,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
 
-                  Navigator.pushNamedAndRemoveUntil(
+                  await _authService.cerrarSesion();
+
+                  if (!context.mounted) return;
+
+                  Navigator.pushAndRemoveUntil(
                     context,
-                    '/login',
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
                     (route) => false,
                   );
                 },
@@ -318,7 +398,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
 
-      // Barra Superior.
+      // =====================================================
+      // BARRA SUPERIOR
+      // =====================================================
+
       appBar: AppBar(
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
@@ -333,12 +416,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         centerTitle: true,
       ),
 
+      // =====================================================
+      // CONTENIDO
+      // =====================================================
+
       body: IndexedStack(
         index: _indiceActual,
         children: _secciones,
       ),
 
-      // Bottom Navigator Bar.
+      // =====================================================
+      // BARRA INFERIOR
+      // =====================================================
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _indiceActual,
         onTap: _cambiarSeccion,
@@ -367,37 +457,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+// ===========================================================
+// SECCIÓN 1 - INICIO
+// ===========================================================
+
 class InicioSection extends StatelessWidget {
-  const InicioSection({super.key});
+  final String nombreUsuario;
+
+  const InicioSection({
+    super.key,
+    required this.nombreUsuario,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 28,
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
 
-          const Icon(
-            Icons.support_agent,
-            size: 65,
-            color: Color(0xFF1565C0),
-          ),
-
-          const SizedBox(height: 15),
-
-          const Text(
-            '¡Bienvenido!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 27,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1565C0),
+          // Saludo principal en una sola línea.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '¡Bienvenido, $nombreUsuario!',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1565C0),
+              ),
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
+          // Descripción.
           const Text(
             'Consulta y da seguimiento a tus servicios de soporte.',
             textAlign: TextAlign.center,
@@ -408,8 +508,9 @@ class InicioSection extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 30),
+          const SizedBox(height: 32),
 
+          // Panel de soporte.
           const Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -422,32 +523,54 @@ class InicioSection extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 15),
+          const SizedBox(height: 16),
 
+          // Mis órdenes.
           _dashboardButton(
             context,
-            Icons.assignment,
             'Mis órdenes de servicio',
             () {
-              Navigator.pushNamed(context, '/orders');
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (
+                    context,
+                    animation,
+                    secondaryAnimation,
+                  ) =>
+                      const OrdersScreen(),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
             },
           ),
 
+          // Seguimiento.
           _dashboardButton(
             context,
-            Icons.build_outlined,
             'Seguimiento de servicio',
             () {
-              Navigator.pushNamed(context, '/services');
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ServicesDesign(),
+                ),
+              );
             },
           ),
 
+          // Actualizaciones.
           _dashboardButton(
             context,
-            Icons.notifications_active_outlined,
             'Actualizaciones del servicio',
             () {
-              Navigator.pushNamed(context, '/actualizaciones');
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ActualizationScreen(),
+                ),
+              );
             },
           ),
         ],
@@ -455,6 +578,10 @@ class InicioSection extends StatelessWidget {
     );
   }
 }
+
+// ===========================================================
+// SECCIÓN 2 - ÓRDENES
+// ===========================================================
 
 class OrdenesSection extends StatelessWidget {
   const OrdenesSection({super.key});
@@ -465,8 +592,19 @@ class OrdenesSection extends StatelessWidget {
   }
 }
 
+// ===========================================================
+// SECCIÓN 3 - PERFIL
+// ===========================================================
+
 class PerfilSection extends StatelessWidget {
-  const PerfilSection({super.key});
+  final String nombreUsuario;
+  final String correoUsuario;
+
+  const PerfilSection({
+    super.key,
+    required this.nombreUsuario,
+    required this.correoUsuario,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -510,7 +648,19 @@ class PerfilSection extends StatelessWidget {
 
           const SizedBox(height: 25),
 
-          // 1. Card + ListTile.
+          Card(
+            child: ListTile(
+              leading: const Icon(
+                Icons.person_outline,
+                color: Color(0xFF1565C0),
+              ),
+              title: const Text('Nombre completo'),
+              subtitle: Text(
+                nombreUsuario,
+              ),
+            ),
+          ),
+
           Card(
             child: ListTile(
               leading: const Icon(
@@ -518,17 +668,14 @@ class PerfilSection extends StatelessWidget {
                 color: Color(0xFF1565C0),
               ),
               title: const Text('Correo electrónico'),
-              subtitle: const Text(
-                'cliente@technosdesign.com',
-              ),
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 18,
+              subtitle: Text(
+                correoUsuario.isNotEmpty
+                    ? correoUsuario
+                    : 'No disponible',
               ),
             ),
           ),
 
-          // 2. Card + ListTile.
           Card(
             child: ListTile(
               leading: const Icon(
@@ -537,65 +684,7 @@ class PerfilSection extends StatelessWidget {
               ),
               title: const Text('Teléfono'),
               subtitle: const Text(
-                '+504 0000-0000',
-              ),
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 18,
-              ),
-            ),
-          ),
-
-          // 3. Card + ListTile.
-          Card(
-            child: ListTile(
-              leading: const Icon(
-                Icons.computer,
-                color: Color(0xFF1565C0),
-              ),
-              title: const Text('Equipo registrado'),
-              subtitle: const Text(
-                'Computadora Dell',
-              ),
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 18,
-              ),
-            ),
-          ),
-
-          // 4. Card + ListTile.
-          Card(
-            child: ListTile(
-              leading: const Icon(
-                Icons.build,
-                color: Color(0xFF1565C0),
-              ),
-              title: const Text('Servicios realizados'),
-              subtitle: const Text(
-                '3 servicios registrados',
-              ),
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 18,
-              ),
-            ),
-          ),
-
-          // 5. Card + ListTile.
-          Card(
-            child: ListTile(
-              leading: const Icon(
-                Icons.check_circle_outline,
-                color: Color(0xFF1565C0),
-              ),
-              title: const Text('Estado de cuenta'),
-              subtitle: const Text(
-                'Cuenta activa',
-              ),
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 18,
+                '+504 9458-3853',
               ),
             ),
           ),
@@ -605,32 +694,38 @@ class PerfilSection extends StatelessWidget {
   }
 }
 
+// ===========================================================
+// BOTÓN REUTILIZABLE
+// ===========================================================
+
 Widget _dashboardButton(
   BuildContext context,
-  IconData icon,
   String title,
   VoidCallback onPressed,
 ) {
   return Container(
     width: double.infinity,
     margin: const EdgeInsets.only(bottom: 12),
-    child: ElevatedButton.icon(
+    child: ElevatedButton(
       onPressed: onPressed,
-      icon: Icon(icon),
-      label: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-        ),
-      ),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
+        elevation: 1,
         padding: const EdgeInsets.symmetric(
           vertical: 16,
+          horizontal: 18,
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      child: Text(
+        title,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
         ),
       ),
     ),

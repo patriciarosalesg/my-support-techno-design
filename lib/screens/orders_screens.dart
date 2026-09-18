@@ -1,6 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
+
 import '../models/orden_servicios.dart';
 import '../widgets/orden_servicio_card.dart';
+import '../services/auth_service.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -10,98 +16,10 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  final List<OrdenServicio> ordenes = [
-    const OrdenServicio(
-      numeroOrden: 'TD-0100',
-      equipo: 'MacBook-Pro',
-      servicio: 'Mantenimiento Preventivo',
-      fechaIngreso: '17/08/2026',
-      fechaEntrega: '20/08/2026',
-      estado: 'Lista para entrega',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-    const OrdenServicio(
-      numeroOrden: 'TD-0101',
-      equipo: 'HP Laptop',
-      servicio: 'Diagnóstico y reparación',
-      fechaIngreso: '17/08/2026',
-      fechaEntrega: '18/08/2026',
-      estado: 'En diagnóstico',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-    const OrdenServicio(
-      numeroOrden: 'TD-0118',
-      equipo: 'Computadora Dell',
-      servicio: 'Mantenimiento preventivo',
-      fechaIngreso: '17/08/2026',
-      fechaEntrega: '19/08/2026',
-      estado: 'Lista para entrega',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-    const OrdenServicio(
-      numeroOrden: 'TD-0119',
-      equipo: 'Lenovo ThinkPad',
-      servicio: 'Reparación de sistema',
-      fechaIngreso: '20/08/2026',
-      fechaEntrega: '22/08/2026',
-      estado: 'En reparación',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-    const OrdenServicio(
-      numeroOrden: 'TD-0120',
-      equipo: 'Acer Aspire',
-      servicio: 'Mantenimiento preventivo',
-      fechaIngreso: '21/08/2026',
-      fechaEntrega: '22/08/2026',
-      estado: 'En diagnóstico',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-    const OrdenServicio(
-      numeroOrden: 'TD-0121',
-      equipo: 'Dell Inspiron',
-      servicio: 'Cambio de disco SSD',
-      fechaIngreso: '22/08/2026',
-      fechaEntrega: '24/08/2026',
-      estado: 'En reparación',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-    const OrdenServicio(
-      numeroOrden: 'TD-0122',
-      equipo: 'ASUS VivoBook',
-      servicio: 'Instalación de software',
-      fechaIngreso: '22/08/2026',
-      fechaEntrega: '24/08/2026',
-      estado: 'En diagnóstico',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-    const OrdenServicio(
-      numeroOrden: 'TD-0123',
-      equipo: 'HP Pavilion',
-      servicio: 'Limpieza interna',
-      fechaIngreso: '23/08/2026',
-      fechaEntrega: '24/08/2026',
-      estado: 'En reparación',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-    const OrdenServicio(
-      numeroOrden: 'TD-0124',
-      equipo: 'iMac',
-      servicio: 'Mantenimiento general',
-      fechaIngreso: '24/08/2026',
-      fechaEntrega: '25/08/2026',
-      estado: 'Pendiente',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-    const OrdenServicio(
-      numeroOrden: 'TD-0125',
-      equipo: 'Microsoft Surface',
-      servicio: 'Diagnóstico de hardware',
-      fechaIngreso: '25/08/2026',
-      fechaEntrega: '26/08/2026',
-      estado: 'En diagnóstico',
-      tecnico: 'Área de Soporte Técnico',
-    ),
-  ];
+  bool cargando = false;
+
+  // Las órdenes se cargan desde el backend según el usuario autenticado.
+  final List<OrdenServicio> ordenes = [];
 
   final Set<String> favoritos = {};
 
@@ -114,14 +32,359 @@ class _OrdersScreenState extends State<OrdersScreen> {
   final TextEditingController fechaController =
       TextEditingController();
 
-  // 5.4 - Texto de búsqueda
+  final TextEditingController costoController =
+      TextEditingController();
+
   String textoBusqueda = '';
+
+  static const String baseUrl =
+      'https://fixit-backend-production-0499.up.railway.app';
+
+  
+  Future<void> cargarOrdenesDesdeBackend() async {
+  setState(() {
+    cargando = true;
+  });
+
+  try {
+    final authService = AuthService();
+
+    final token = await authService.obtenerToken();
+    final userId = await authService.obtenerIdUsuario();
+
+    if (token == null ||
+        token.isEmpty ||
+        userId == null ||
+        userId.isEmpty) {
+      setState(() {
+        ordenes.clear();
+        cargando = false;
+      });
+
+      return;
+    }
+
+    final respuesta = await http.get(
+      Uri.parse('$baseUrl/api/ordenes'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (respuesta.statusCode == 200) {
+      final datos = jsonDecode(respuesta.body);
+
+      final List<dynamic> lista = datos['data'] ?? [];
+
+      // Solo mostramos las órdenes del usuario que inició sesión.
+      final ordenesDelUsuario = lista.where((item) {
+        return item['usuarioId']?.toString() == userId;
+      }).toList();
+
+      setState(() {
+        ordenes.clear();
+
+        ordenes.addAll(
+          ordenesDelUsuario.map(
+            (item) => OrdenServicio.fromJson(item),
+          ),
+        );
+
+        cargando = false;
+      });
+    } else {
+      setState(() {
+        ordenes.clear();
+        cargando = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No se pudieron cargar las órdenes. Código: ${respuesta.statusCode}',
+            ),
+          ),
+        );
+      }
+    }
+  } catch (error) {
+    setState(() {
+      ordenes.clear();
+      cargando = false;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No se pudo conectar con el servidor.',
+          ),
+        ),
+      );
+    }
+
+    print('Error al conectar con el backend: $error');
+  }
+}
+
+Future<void> crearOrdenEnBackend() async {
+  if (equipoController.text.trim().isEmpty ||
+      servicioController.text.trim().isEmpty ||
+      fechaController.text.trim().isEmpty ||
+      costoController.text.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Complete todos los campos antes de guardar.',
+        ),
+      ),
+    );
+
+    return;
+  }
+
+  final costo =
+      double.tryParse(costoController.text.trim());
+
+  if (costo == null || costo < 0) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Ingrese un costo válido.',
+        ),
+      ),
+    );
+
+    return;
+  }
+
+  final authService = AuthService();
+  final token = await authService.obtenerToken();
+
+  if (token == null || token.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'La sesión no está activa.',
+        ),
+      ),
+    );
+
+    return;
+  }
+
+  final numeroOrden =
+      'TD-${DateTime.now().millisecondsSinceEpoch}';
+
+  final fechaIngreso = _obtenerFechaActual();
+
+  try {
+    final respuesta = await http.post(
+      Uri.parse('$baseUrl/api/ordenes'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'numeroOrden': numeroOrden,
+        'equipo': equipoController.text.trim(),
+        'servicio': servicioController.text.trim(),
+        'fechaIngreso': fechaIngreso,
+        'fechaEntrega': fechaController.text.trim(),
+        'costoTotal': costo,
+        'estado': 'Pendiente',
+        'tecnico': 'Área de Soporte Técnico',
+      }),
+    );
+
+    final datos = jsonDecode(respuesta.body);
+
+    if (respuesta.statusCode == 201) {
+      if (!mounted) return;
+
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Nueva orden guardada correctamente.',
+          ),
+        ),
+      );
+
+      await cargarOrdenesDesdeBackend();
+    } else {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            datos['message'] ??
+                'No se pudo guardar la orden.',
+          ),
+        ),
+      );
+    }
+  } catch (error) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'No se pudo conectar con el servidor.',
+        ),
+      ),
+    );
+
+    print('Error al crear la orden: $error');
+  }
+}
+
+  Future<void> actualizarOrdenEnBackend({
+    required OrdenServicio orden,
+    required String equipo,
+    required String servicio,
+    required String fechaEntrega,
+    required double costoTotal,
+  }) async {
+    final authService = AuthService();
+    final token = await authService.obtenerToken();
+
+    if (token == null || token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La sesión no está activa.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    try {
+      final respuesta = await http.put(
+        Uri.parse('$baseUrl/api/ordenes/${orden.id}'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'equipo': equipo,
+          'servicio': servicio,
+          'fechaEntrega': fechaEntrega,
+          'costoTotal': costoTotal,
+        }),
+      );
+
+      final datos = jsonDecode(respuesta.body);
+
+      if (respuesta.statusCode == 200) {
+        if (!mounted) return;
+
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Orden ${orden.numeroOrden} actualizada correctamente.',
+            ),
+          ),
+        );
+
+        await cargarOrdenesDesdeBackend();
+      } else {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              datos['message'] ??
+                  'No se pudo actualizar la orden.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      print('Error al actualizar la orden: $error');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No se pudo conectar con el servidor.',
+          ),
+        ),
+      );
+    }
+  }
+
+  String _obtenerFechaActual() {
+    final ahora = DateTime.now();
+
+    final dia = ahora.day.toString().padLeft(2, '0');
+    final mes = ahora.month.toString().padLeft(2, '0');
+    final anio = ahora.year.toString();
+
+    return '$dia/$mes/$anio';
+  }
+
+  Future<void> generarFactura(OrdenServicio orden) async {
+    final url = Uri.parse(
+      '$baseUrl/api/ordenes/${orden.id}/factura',
+    );
+
+    try {
+      final puedeAbrir = await canLaunchUrl(url);
+
+      if (!puedeAbrir) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No se pudo abrir la factura.',
+            ),
+          ),
+        );
+
+        return;
+      }
+
+      await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (error) {
+      print('Error al abrir la factura: $error');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Ocurrió un error al abrir la factura.',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    cargarOrdenesDesdeBackend();
+  }
 
   @override
   void dispose() {
     equipoController.dispose();
     servicioController.dispose();
     fechaController.dispose();
+    costoController.dispose();
     super.dispose();
   }
 
@@ -156,7 +419,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 setState(() {
                   ordenes.removeWhere(
                     (item) =>
-                        item.numeroOrden == orden.numeroOrden,
+                        item.numeroOrden ==
+                        orden.numeroOrden,
                   );
 
                   favoritos.remove(orden.numeroOrden);
@@ -189,6 +453,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     equipoController.clear();
     servicioController.clear();
     fechaController.clear();
+    costoController.clear();
 
     showModalBottomSheet(
       context: context,
@@ -242,6 +507,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     border: OutlineInputBorder(),
                   ),
                 ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: costoController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Costo total',
+                    prefixIcon: Icon(Icons.attach_money),
+                    border: OutlineInputBorder(),
+                    hintText: 'Ej. 850.00',
+                  ),
+                ),
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -256,48 +535,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          if (equipoController.text.isEmpty ||
-                              servicioController.text.isEmpty ||
-                              fechaController.text.isEmpty) {
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Completa todos los campos.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-
-                          setState(() {
-                            ordenes.add(
-                              OrdenServicio(
-                                numeroOrden:
-                                    'TD-${1000 + ordenes.length}',
-                                equipo: equipoController.text,
-                                servicio: servicioController.text,
-                                fechaIngreso: '15/08/2026',
-                                fechaEntrega: fechaController.text,
-                                estado: 'Pendiente',
-                                tecnico:
-                                    'Área de Soporte Técnico',
-                              ),
-                            );
-                          });
-
-                          Navigator.pop(context);
-
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Nueva orden agregada correctamente.',
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: crearOrdenEnBackend,
                         child: const Text('Guardar'),
                       ),
                     ),
@@ -320,6 +558,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     final fechaEditar =
         TextEditingController(text: orden.fechaEntrega);
+
+    final costoEditar = TextEditingController(
+      text: orden.costoTotal.toStringAsFixed(2),
+    );
 
     showDialog(
       context: context,
@@ -350,6 +592,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     labelText: 'Fecha de entrega',
                   ),
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: costoEditar,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Costo total',
+                    prefixIcon: Icon(Icons.attach_money),
+                  ),
+                ),
               ],
             ),
           ),
@@ -362,34 +616,28 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                setState(() {
-                  final index = ordenes.indexWhere(
-                    (item) =>
-                        item.numeroOrden ==
-                        orden.numeroOrden,
+                final costo = double.tryParse(
+                  costoEditar.text.trim(),
+                );
+
+                if (costo == null || costo < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Ingrese un costo válido.',
+                      ),
+                    ),
                   );
 
-                  if (index != -1) {
-                    ordenes[index] = OrdenServicio(
-                      numeroOrden: orden.numeroOrden,
-                      equipo: equipoEditar.text,
-                      servicio: servicioEditar.text,
-                      fechaIngreso: orden.fechaIngreso,
-                      fechaEntrega: fechaEditar.text,
-                      estado: orden.estado,
-                      tecnico: orden.tecnico,
-                    );
-                  }
-                });
+                  return;
+                }
 
-                Navigator.pop(context);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Orden ${orden.numeroOrden} actualizada.',
-                    ),
-                  ),
+                actualizarOrdenEnBackend(
+                  orden: orden,
+                  equipo: equipoEditar.text.trim(),
+                  servicio: servicioEditar.text.trim(),
+                  fechaEntrega: fechaEditar.text.trim(),
+                  costoTotal: costo,
                 );
               },
               child: const Text('Guardar'),
@@ -408,15 +656,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final double margenHorizontal =
         anchoPantalla > 600 ? 60 : 20;
 
-    // Filtrado de órdenes
     final String busqueda =
         textoBusqueda.trim().toLowerCase();
 
     final List<OrdenServicio> ordenesFiltradas =
         ordenes.where((orden) {
-      return orden.numeroOrden.toLowerCase().contains(busqueda) ||
-          orden.equipo.toLowerCase().contains(busqueda) ||
-          orden.servicio.toLowerCase().contains(busqueda);
+      return orden.numeroOrden
+              .toLowerCase()
+              .contains(busqueda) ||
+          orden.equipo
+              .toLowerCase()
+              .contains(busqueda) ||
+          orden.servicio
+              .toLowerCase()
+              .contains(busqueda);
     }).toList();
 
     return Scaffold(
@@ -425,10 +678,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
+        elevation: 0,
         title: const Text(
           'Mis órdenes de servicio',
           style: TextStyle(
             fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
         centerTitle: true,
@@ -436,7 +691,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
       body: Column(
         children: [
-          // Barra de búsqueda
           Padding(
             padding: EdgeInsets.fromLTRB(
               margenHorizontal,
@@ -451,7 +705,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 });
               },
               decoration: InputDecoration(
-                hintText: 'Buscar por orden, equipo o servicio',
+                hintText:
+                    'Buscar por orden, equipo o servicio',
                 prefixIcon: const Icon(
                   Icons.search,
                   color: Color(0xFF1565C0),
@@ -489,21 +744,28 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
           ),
 
-          // Mensaje cuando no hay resultados
-          if (ordenesFiltradas.isEmpty)
+          if (cargando)
+            const Expanded(
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF1565C0),
+                ),
+              ),
+            )
+          else if (ordenesFiltradas.isEmpty)
             const Expanded(
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.search_off,
+                      Icons.assignment_outlined,
                       size: 55,
                       color: Colors.grey,
                     ),
                     SizedBox(height: 10),
                     Text(
-                      'No se encontraron órdenes.',
+                      'No tienes órdenes de servicio.',
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.black54,
@@ -514,7 +776,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ),
             )
           else
-            
             Expanded(
               child: ListView.builder(
                 padding: EdgeInsets.symmetric(
@@ -654,8 +915,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
                       onDismissed: (direction) {
                         if (direction ==
-                            DismissDirection
-                                .endToStart) {
+                            DismissDirection.endToStart) {
                           setState(() {
                             ordenes.removeWhere(
                               (item) =>
@@ -679,40 +939,76 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         }
                       },
 
-                      child: GestureDetector(
-                        onLongPress: () {
-                          confirmarEliminacion(orden);
-                        },
-
-                        child: OrdenServicioCard(
-                          numeroOrden:
-                              orden.numeroOrden,
-                          equipo: orden.equipo,
-                          servicio: orden.servicio,
-                          estado: orden.estado,
-                          fechaEntrega:
-                              orden.fechaEntrega,
-
-                          onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              '/actualizaciones',
-                              arguments: orden,
-                            );
-                          },
-
-                          onToggleFavorite: () {
-                            cambiarFavorito(
-                              orden.numeroOrden,
-                            );
-                          },
-
-                          esFavorito: favoritos.contains(
-                            orden.numeroOrden,
+                      child: Column(
+                        children: [
+                          GestureDetector(
+                            onLongPress: () {
+                              confirmarEliminacion(orden);
+                            },
+                            child: OrdenServicioCard(
+                              numeroOrden:
+                                  orden.numeroOrden,
+                              equipo: orden.equipo,
+                              servicio: orden.servicio,
+                              estado: orden.estado,
+                              fechaEntrega:
+                                  orden.fechaEntrega,
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/actualizaciones',
+                                  arguments: orden,
+                                );
+                              },
+                              onToggleFavorite: () {
+                                cambiarFavorito(
+                                  orden.numeroOrden,
+                                );
+                              },
+                              esFavorito:
+                                  favoritos.contains(
+                                orden.numeroOrden,
+                              ),
+                              mostrarEstado: true,
+                            ),
                           ),
 
-                          mostrarEstado: true,
-                        ),
+                          const SizedBox(height: 8),
+
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                generarFactura(orden);
+                              },
+                              icon: const Icon(
+                                Icons.picture_as_pdf,
+                                color: Color(0xFF1565C0),
+                              ),
+                              label: const Text(
+                                'Generar factura',
+                                style: TextStyle(
+                                  color: Color(0xFF1565C0),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(
+                                  color: Color(0xFF1565C0),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(10),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
